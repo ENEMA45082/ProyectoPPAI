@@ -47,6 +47,6 @@ namespace ProyectoPPAI.Clases
         #endregion
 
     // ========================       Métodos adicionales        ========================
-
+    public void probarCambiosGit() { }
     }
 }

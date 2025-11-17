@@ -18,7 +18,7 @@ namespace ProyectoPPAI
                 }
 
                 // Crear repositorio e inicializar BD
-                using var repository = new EventoSismicoRepository();
+                var repository = new EventoSismicoRepository();
                 await repository.InicializarBaseDatosConEventos();
 
                 Console.WriteLine("? Base de datos inicializada exitosamente con 100 eventos sísmicos");
@@ -35,7 +35,7 @@ namespace ProyectoPPAI
         {
             try
             {
-                using var repository = new EventoSismicoRepository();
+                var repository = new EventoSismicoRepository();
                 var eventos = await repository.ObtenerEventosAutodetectados();
                 return eventos.Count;
             }

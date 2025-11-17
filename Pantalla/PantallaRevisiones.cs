@@ -87,9 +87,9 @@ namespace ProyectoPPAI.Pantalla
 
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private async void button1_Click(object sender, EventArgs e)
         {
-            string usuario = gestorRevisiones.TomarRechazarEvento();
+            string usuario = await gestorRevisiones.TomarRechazarEvento();
             MessageBox.Show(
                 $"El evento sísmico fue rechazado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario}",
                 $"Estado Actual\n Rechazado por: {usuario}",

@@ -114,9 +114,8 @@ namespace ProyectoPPAI
         public async Task tomarEventoSismicoSeleccionado(EventoSismico evento)
         {
             eventoSeleccionado = evento;
-            //var estadoBloqueado = buscarBloqueadoEnRevision();
 
-            bloquearEventoSismico(eventoSeleccionado);
+            await bloquearEventoSismico(eventoSeleccionado);
             BuscarDatos();
             tomarInfoSeriesYMuestras();
 
@@ -130,19 +129,22 @@ namespace ProyectoPPAI
             fechaHoraActual = DateTime.Now;
         }
 
-        public void bloquearEventoSismico(EventoSismico evento)
+        public async Task bloquearEventoSismico(EventoSismico evento)
         {
-            getFechaHoraActual(); // Llama al método para establecer la fecha y hora actual
-            evento.Revisar(fechaHoraActual); // Usa la fecha y hora actual establecida
+            Debug.WriteLine($"ANTES - Estado en memoria: {evento.GetEstadoActual()?.GetNombre()}");
+            Debug.WriteLine($"EVENTO ID: {evento.GetId()}");
             
-            // Actualizar estado en la base de datos usando datos únicos del evento
-            _ = Task.Run(async () => {
-                await _repository.ActualizarEstadoEventoPorDatos(
-                    evento.GetFechaHoraOcurrencia(),
-                    evento.GetLatitudEpicentro(),
-                    evento.GetLongitudEpicentro(),
-                    "bloqueadoEnRevision");
-            });
+            string estadoAnterior = evento.GetEstadoActual()?.GetNombre() ?? "desconocido";
+            
+            getFechaHoraActual();
+            evento.Revisar(fechaHoraActual); // Cambio en memoria
+            
+            Debug.WriteLine($"DESPUÉS Revisar - Estado en memoria: {evento.GetEstadoActual()?.GetNombre()}");
+            
+            // Usar el nuevo sistema de tracking para persistir el cambio de estado
+            await _repository.CambiarEstadoEventoPorId(evento.GetId(), estadoAnterior, "bloqueadoEnRevision", usuarioLogueado);
+                
+            Debug.WriteLine("Estado actualizado en BD con tracking completo");
         }
 
 
@@ -178,7 +180,7 @@ namespace ProyectoPPAI
         // =========================================================================================================================================================
         public void OrdenarPorEstacionSismologica() 
         {
-            
+            // NO DICE EL ENUNCIADO PORQUE ORDENAR, ASI QUE LO HAGO ALFABETICAMENTE
         }
 
         // Busca y muestra datos principales del evento
@@ -241,12 +243,12 @@ namespace ProyectoPPAI
         }
 
         // Rechaza un evento si cumple con los requisitos
-        public String TomarRechazarEvento()
+        public async Task<String> TomarRechazarEvento()
         {
             ValidarExistenDatos();
             ObtenerASLogueado();
             getFechaHoraActual(); // Llama al método para establecer la fecha y hora actual
-            RechazarEventoSismico();
+            await RechazarEventoSismico();
             return usuarioLogueado;
         }
         public string ValidarExistenDatos()
@@ -304,21 +306,24 @@ namespace ProyectoPPAI
             usuarioLogueado = sesion.GetUsuario();
             return usuarioLogueado;
         }
-        public void RechazarEventoSismico()
+        public async Task RechazarEventoSismico()
         {
-            eventoSeleccionado.Rechazar(fechaHoraActual, usuarioLogueado);
+            Debug.WriteLine($"ANTES RECHAZAR - Estado en memoria: {eventoSeleccionado.GetEstadoActual()?.GetNombre()}");
+            Debug.WriteLine($"EVENTO ID: {eventoSeleccionado.GetId()}");
             
-            // Actualizar estado en la base de datos usando datos únicos del evento
-            _ = Task.Run(async () => {
-                await _repository.ActualizarEstadoEventoPorDatos(
-                    eventoSeleccionado.GetFechaHoraOcurrencia(),
-                    eventoSeleccionado.GetLatitudEpicentro(),
-                    eventoSeleccionado.GetLongitudEpicentro(),
-                    "rechazado");
-            });
+            string estadoAnterior = eventoSeleccionado.GetEstadoActual()?.GetNombre() ?? "desconocido";
+            
+            eventoSeleccionado.Rechazar(fechaHoraActual, usuarioLogueado); // Cambio en memoria
+            
+            Debug.WriteLine($"DESPUÉS RECHAZAR - Estado en memoria: {eventoSeleccionado.GetEstadoActual()?.GetNombre()}");
+            
+            // Usar el nuevo sistema de tracking para persistir el cambio de estado
+            await _repository.CambiarEstadoEventoPorId(eventoSeleccionado.GetId(), estadoAnterior, "rechazado", usuarioLogueado);
+            
+            Debug.WriteLine("Estado RECHAZADO actualizado en BD con tracking completo");
         }
 
-        #endregion
+        #endregion  
 
         // Método para generar y mostrar el sismograma
         public void llamarCuGenerarSismograma()

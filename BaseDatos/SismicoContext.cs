@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Sqlite; // Asegúrate de incluir esta directiva using
 using ProyectoPPAI.Clases;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.IO;
 
 namespace ProyectoPPAI.BaseDatos
 {
@@ -15,16 +17,70 @@ namespace ProyectoPPAI.BaseDatos
         public DbSet<SerieTemporalBD> SeriesTemporales { get; set; }
         public DbSet<MuestraSismicaBD> MuestrasSismicas { get; set; }
         public DbSet<DetalleMuestraSismicaBD> DetallesMuestras { get; set; }
+        public DbSet<CambioEstadoBD> CambiosEstado { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            // Configurar SQLite con archivo en la carpeta del proyecto
-            optionsBuilder.UseSqlite(@"Data Source=BaseDatos\eventos_sismicos.db");
+            // Configurar SQLite con ruta completa
+            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var dbPath = Path.Combine(baseDirectory, "BaseDatos", "eventos_sismicos.db");
+            var connectionString = $"Data Source={dbPath}";
+            
+            // Logging para verificar la ruta
+            Console.WriteLine($"=== CONFIGURACIÓN DE BASE DE DATOS ===");
+            Console.WriteLine($"Directorio base: {baseDirectory}");
+            Console.WriteLine($"Ruta completa BD: {dbPath}");
+            Console.WriteLine($"¿Archivo existe?: {File.Exists(dbPath)}");
+            
+            // Crear directorio si no existe
+            var dbDirectory = Path.GetDirectoryName(dbPath);
+            if (!Directory.Exists(dbDirectory))
+            {
+                Directory.CreateDirectory(dbDirectory);
+                Console.WriteLine($"Directorio creado: {dbDirectory}");
+            }
+            
+            optionsBuilder.UseSqlite(connectionString);
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configuraciones adicionales si son necesarias
+            // Configurar relaciones explícitamente
+            modelBuilder.Entity<SismografoBD>()
+                .HasOne(s => s.Estacion)
+                .WithMany(e => e.Sismografos)
+                .HasForeignKey(s => s.EstacionId);
+
+            modelBuilder.Entity<SerieTemporalBD>()
+                .HasOne(st => st.EventoSismico)
+                .WithMany(e => e.SeriesTemporales)
+                .HasForeignKey(st => st.EventoSismicoId);
+
+            modelBuilder.Entity<SerieTemporalBD>()
+                .HasOne(st => st.Sismografo)
+                .WithMany(s => s.SeriesTemporales)
+                .HasForeignKey(st => st.SismografoId);
+
+            modelBuilder.Entity<MuestraSismicaBD>()
+                .HasOne(m => m.SerieTemporal)
+                .WithMany(st => st.Muestras)
+                .HasForeignKey(m => m.SerieTemporalId);
+
+            modelBuilder.Entity<DetalleMuestraSismicaBD>()
+                .HasOne(d => d.Muestra)
+                .WithMany(m => m.Detalles)
+                .HasForeignKey(d => d.MuestraId);
+
+            modelBuilder.Entity<CambioEstadoBD>()
+                .HasOne(c => c.EventoSismico)
+                .WithMany(e => e.CambiosEstado)
+                .HasForeignKey(c => c.EventoSismicoId);
+
+            // Configurar campo UsuarioModificacion como nullable
+            modelBuilder.Entity<CambioEstadoBD>()
+                .Property(c => c.UsuarioModificacion)
+                .IsRequired(false);
+
             base.OnModelCreating(modelBuilder);
         }
     }
@@ -53,6 +109,7 @@ namespace ProyectoPPAI.BaseDatos
         
         // Navegación
         public virtual ICollection<SerieTemporalBD> SeriesTemporales { get; set; } = new List<SerieTemporalBD>();
+        public virtual ICollection<CambioEstadoBD> CambiosEstado { get; set; } = new List<CambioEstadoBD>();
     }
 
     [Table("EstacionesSismologicas")]
@@ -139,5 +196,23 @@ namespace ProyectoPPAI.BaseDatos
         
         // Navegación
         public virtual MuestraSismicaBD Muestra { get; set; } = null!;
+    }
+
+    [Table("CambiosEstado")]
+    public class CambioEstadoBD
+    {
+        [Key]
+        public int Id { get; set; }
+        
+        public DateTime FechaHoraCambio { get; set; }
+        public string EstadoAnterior { get; set; } = "";
+        public string EstadoNuevo { get; set; } = "";
+        public string? UsuarioModificacion { get; set; }
+        
+        // Clave foránea
+        public int EventoSismicoId { get; set; }
+        
+        // Navegación
+        public virtual EventoSismicoBD EventoSismico { get; set; } = null!;
     }
 }

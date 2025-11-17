@@ -49,10 +49,10 @@ namespace ProyectoPPAI
             return false;
         }
 
-        public void Revisar(CambioEstado[] es, EventoSismico eventoSismico, DateTime fechaHora)
+        public void Revisar(CambioEstado[] cambios, EventoSismico eventoSismico, DateTime fechaHora)
         {
             // Buscar el cambio de estado actual
-            var cambioActual = buscarCambioEstadoActual(es);
+            var cambioActual = buscarCambioEstadoActual(cambios);
             if (cambioActual != null)
             {
                 // Establecer fecha hora fin del cambio actual

@@ -1,9 +1,11 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ProyectoPPAI.Clases;
+using System;
+using System.Diagnostics;
 
 namespace ProyectoPPAI.BaseDatos
 {
-    public class EventoSismicoRepository
+    public class EventoSismicoRepository : IDisposable
     {
         private readonly SismicoContext _context;
 
@@ -14,26 +16,47 @@ namespace ProyectoPPAI.BaseDatos
             _context.Database.EnsureCreated();
         }
 
-        // M�todo para cargar 100 eventos en la BD (reemplaza al GenerarEventosAleatorios)
+        // Método para cargar 100 eventos en la BD (reemplaza al GenerarEventosAleatorios)
         public async Task InicializarBaseDatosConEventos()
         {
-            // Verificar si ya hay datos
-            if (await _context.EventosSismicos.AnyAsync())
+            try
             {
-                return; // Ya hay datos, no generar m�s
+                // Asegurar que la base de datos existe y crear las tablas
+                bool created = await _context.Database.EnsureCreatedAsync();
+                Console.WriteLine($"Base de datos creada: {created}");
+
+                // Verificar si ya hay datos
+                var count = await _context.EventosSismicos.CountAsync();
+                Console.WriteLine($"Eventos existentes en BD: {count}");
+
+                if (count > 0)
+                {
+                    Console.WriteLine("Ya hay datos en la base de datos, no se generarán más eventos.");
+                    return; // Ya hay datos, no generar más
+                }
+
+                Console.WriteLine("Generando 100 eventos sísmicos...");
+                // Generar eventos usando la lógica existente
+                var eventosGenerados = Generar.GenerarEventosAleatorios(100);
+                Console.WriteLine($"Eventos generados: {eventosGenerados.Count}");
+
+                // Convertir a entidades de BD
+                foreach (var evento in eventosGenerados)
+                {
+                    var eventoBD = ConvertirEventoABD(evento);
+                    _context.EventosSismicos.Add(eventoBD);
+                }
+
+                Console.WriteLine("Guardando eventos en la base de datos...");
+                int saved = await _context.SaveChangesAsync();
+                Console.WriteLine($"Eventos guardados exitosamente: {saved}");
             }
-
-            // Generar eventos usando la l�gica existente
-            var eventosGenerados = Generar.GenerarEventosAleatorios(100);
-
-            // Convertir a entidades de BD
-            foreach (var evento in eventosGenerados)
+            catch (Exception ex)
             {
-                var eventoBD = ConvertirEventoABD(evento);
-                _context.EventosSismicos.Add(eventoBD);
+                Console.WriteLine($"Error al inicializar base de datos: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                throw;
             }
-
-            await _context.SaveChangesAsync();
         }
 
         // Obtener TODOS los eventos desde la BD
@@ -83,10 +106,48 @@ namespace ProyectoPPAI.BaseDatos
             return eventos;
         }
 
-        // Actualizar estado de un evento en la BD usando datos �nicos
-        public async Task ActualizarEstadoEventoPorDatos(DateTime fechaOcurrencia, double latitudEpicentro, double longitudEpicentro, string nuevoEstado)
+        // Actualizar estado de un evento en la BD usando datos únicos
+        // Método completo para cambiar estado con persistencia y tracking por ID
+        public async Task CambiarEstadoEventoPorId(int eventoId, string estadoAnterior, string nuevoEstado, string usuario = "Sistema")
         {
             var evento = await _context.EventosSismicos
+                .Include(e => e.CambiosEstado)
+                .FirstOrDefaultAsync(e => e.Id == eventoId);
+                    
+            if (evento != null)
+            {
+                Console.WriteLine($"CAMBIO ESTADO: Evento ID {evento.Id}: '{estadoAnterior}' → '{nuevoEstado}'");
+                
+                // Crear registro de cambio de estado
+                var cambioEstado = new CambioEstadoBD
+                {
+                    FechaHoraCambio = DateTime.Now,
+                    EstadoAnterior = estadoAnterior,
+                    EstadoNuevo = nuevoEstado,
+                    UsuarioModificacion = string.IsNullOrEmpty(usuario) ? "Sistema" : usuario,
+                    EventoSismicoId = evento.Id
+                };
+                
+                // Actualizar estado actual
+                evento.EstadoActual = nuevoEstado;
+                
+                // Agregar cambio al historial
+                evento.CambiosEstado.Add(cambioEstado);
+                
+                var changes = await _context.SaveChangesAsync();
+                Console.WriteLine($"PERSISTENCIA: {changes} cambios guardados en BD");
+            }
+            else
+            {
+                Console.WriteLine($"ERROR: No se encontró evento con ID {eventoId} para cambiar estado");
+            }
+        }
+
+        // Método completo para cambiar estado con persistencia y tracking
+        public async Task CambiarEstadoEvento(DateTime fechaOcurrencia, double latitudEpicentro, double longitudEpicentro, string nuevoEstado, string? usuario = null)
+        {
+            var evento = await _context.EventosSismicos
+                .Include(e => e.CambiosEstado)
                 .FirstOrDefaultAsync(e => 
                     e.FechaHoraOcurrencia == fechaOcurrencia &&
                     Math.Abs(e.LatitudEpicentro - latitudEpicentro) < 0.0001 &&
@@ -94,9 +155,38 @@ namespace ProyectoPPAI.BaseDatos
                     
             if (evento != null)
             {
+                string estadoAnterior = evento.EstadoActual;
+                Console.WriteLine($"CAMBIO ESTADO: Evento ID {evento.Id}: '{estadoAnterior}' → '{nuevoEstado}'");
+                
+                // Crear registro de cambio de estado
+                var cambioEstado = new CambioEstadoBD
+                {
+                    FechaHoraCambio = DateTime.Now,
+                    EstadoAnterior = estadoAnterior,
+                    EstadoNuevo = nuevoEstado,
+                    UsuarioModificacion = usuario ?? "Sistema",
+                    EventoSismicoId = evento.Id
+                };
+                
+                // Actualizar estado actual
                 evento.EstadoActual = nuevoEstado;
-                await _context.SaveChangesAsync();
+                
+                // Agregar cambio al historial
+                evento.CambiosEstado.Add(cambioEstado);
+                
+                var changes = await _context.SaveChangesAsync();
+                Console.WriteLine($"PERSISTENCIA: {changes} cambios guardados en BD");
             }
+            else
+            {
+                Console.WriteLine($"ERROR: No se encontró evento para cambiar estado");
+            }
+        }
+
+        // Actualizar estado de un evento en la BD usando datos únicos
+        public async Task ActualizarEstadoEventoPorDatos(DateTime fechaOcurrencia, double latitudEpicentro, double longitudEpicentro, string nuevoEstado)
+        {
+            await CambiarEstadoEvento(fechaOcurrencia, latitudEpicentro, longitudEpicentro, nuevoEstado);
         }
 
         // Actualizar estado de un evento en la BD
@@ -107,6 +197,33 @@ namespace ProyectoPPAI.BaseDatos
             {
                 evento.EstadoActual = nuevoEstado;
                 await _context.SaveChangesAsync();
+            }
+        }
+
+        // Agregar este método para actualizar por ID
+        public async Task ActualizarEstadoEventoPorId(int eventoId, string nuevoEstado)
+        {
+            var evento = await _context.EventosSismicos.FindAsync(eventoId);
+            if (evento != null)
+            {
+                Debug.WriteLine($"ENCONTRADO - Evento ID {evento.Id}: Estado actual '{evento.EstadoActual}'");
+                Debug.WriteLine($"ACTUALIZANDO a: '{nuevoEstado}'");
+                
+                evento.EstadoActual = nuevoEstado;
+                
+                try 
+                {
+                    var changes = await _context.SaveChangesAsync();
+                    Debug.WriteLine($"✅ SUCCESS: {changes} cambios guardados en BD");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"❌ ERROR al guardar: {ex.Message}");
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"❌ No se encontró evento con ID: {eventoId}");
             }
         }
 
@@ -122,13 +239,13 @@ namespace ProyectoPPAI.BaseDatos
                 LatitudHipocentro = evento.GetLatitudHipocentro(),
                 LongitudHipocentro = evento.GetLongitudHipocentro(),
                 ValorMagnitud = evento.GetValorMagnitud(),
-                DescripcionMagnitud = evento.GetMagnitudRichter()?.GetDescripcion() ?? "",
+                DescripcionMagnitud = evento.GetMagnitudRichter()?.GetDescripcionMagnitud() ?? "",
                 EstadoActual = evento.GetEstadoActual()?.GetNombre() ?? "",
                 Clasificacion = evento.GetClasificacion(),
-                OrigenGeneracion = evento.GetOrigenGeneracion(),
-                DescripcionOrigen = evento.GetOrigenDeGeneracion()?.GetDescripcion() ?? "",
-                Alcance = evento.GetAlcance(),
-                DescripcionAlcance = evento.GetAlcanceSismo()?.GetDescripcion() ?? ""
+                OrigenGeneracion = evento.GetOrigenGeneracion() ?? "",
+                DescripcionOrigen = ObtenerDescripcionOrigen(evento),
+                Alcance = evento.GetAlcance() ?? "",
+                DescripcionAlcance = ObtenerDescripcionAlcance(evento)
             };
 
             // Convertir series temporales
@@ -152,18 +269,19 @@ namespace ProyectoPPAI.BaseDatos
                 EventoSismicoId = eventoId
             };
 
-            // Manejar sismografo si existe
+            // Manejar sismografo si existe - primero guardarlo para obtener el ID
             var sismografo = serie.GetSismografo();
             if (sismografo != null)
             {
                 var sismografoBD = ConvertirSismografoABD(sismografo);
                 serieBD.Sismografo = sismografoBD;
+                // El SismografoId se asignará automáticamente por EF cuando se guarde
             }
 
             // Convertir muestras
             foreach (var muestra in serie.GetMuestrasSismicas())
             {
-                var muestraBD = ConvertirMuestraABD(muestra, serieBD.Id);
+                var muestraBD = ConvertirMuestraABD(muestra, 0); // Pasamos 0, se asignará automáticamente
                 serieBD.Muestras.Add(muestraBD);
             }
 
@@ -182,7 +300,7 @@ namespace ProyectoPPAI.BaseDatos
             return new SismografoBD
             {
                 FechaAdquisicion = sismografo.GetFechaAdquisicion(),
-                Identificador = sismografo.GetIdentificador(),
+                Identificador = sismografo.GetIdentificadorSimografo(),
                 NumeroSerie = sismografo.GetNumeroSerie(),
                 Estacion = estacionBD
             };
@@ -198,14 +316,14 @@ namespace ProyectoPPAI.BaseDatos
             };
 
             // Convertir detalles
-            foreach (var detalle in muestra.GetDetalleDeMuestras())
+            foreach (var detalle in muestra.GetDetalles())
             {
                 var detalleBD = new DetalleMuestraSismicaBD
                 {
-                    Valor = detalle.GetValor(),
-                    TipoDato = detalle.GetTipoDato().GetNombre(),
-                    DescripcionTipoDato = detalle.GetTipoDato().GetDescripcion(),
-                    MuestraId = muestraBD.Id
+                    Valor = detalle.GetValorMedido(),
+                    TipoDato = detalle.GetTipoDato().GetNombreUnidadmedida(),
+                    DescripcionTipoDato = detalle.GetTipoDato().GetDenominacion(),
+                    // MuestraId se asignará automáticamente por EF
                 };
                 muestraBD.Detalles.Add(detalleBD);
             }
@@ -229,9 +347,12 @@ namespace ProyectoPPAI.BaseDatos
                 "bloqueadoEnRevision" => new BloqueadoEnRevision(),
                 "confirmado" => new Confirmado(),
                 "rechazado" => new Rechazado(),
-                "pendienteRevision" => new PendienteRevision(),
-                _ => new AutoDetectado()
+                "PendienteRevision" => new PendienteRevision(),
+                "derivado" => new Derivado(),
+                _ => throw new ArgumentException($"Estado desconocido en BD: '{eventoBD.EstadoActual}'")
             };
+
+            Debug.WriteLine($"DEBUG: Estado en BD: '{eventoBD.EstadoActual}'");
 
             // Crear evento
             var evento = new EventoSismico(
@@ -248,6 +369,9 @@ namespace ProyectoPPAI.BaseDatos
                 alcance,
                 magnitudRichter
             );
+
+            // *** AGREGAR ESTA LÍNEA ***
+            evento.SetId(eventoBD.Id);
 
             // Agregar series temporales
             foreach (var serieBD in eventoBD.SeriesTemporales)
@@ -312,6 +436,52 @@ namespace ProyectoPPAI.BaseDatos
             }
 
             return muestra;
+        }
+
+        // Métodos auxiliares para obtener descripciones
+        private string ObtenerDescripcionOrigen(EventoSismico evento)
+        {
+            return evento.GetOrigenDeGeneracionCompleto()?.GetDescripcion() ?? "";
+        }
+
+        private string ObtenerDescripcionAlcance(EventoSismico evento)
+        {
+            return evento.GetAlcanceCompleto()?.GetDescripcion() ?? "";
+        }
+
+        // Método de prueba para verificar conectividad y actualización
+        public async Task<bool> PruebaActualizacionBD()
+        {
+            try
+            {
+                // Obtener el primer evento autodetectado
+                var primerEvento = await _context.EventosSismicos
+                    .Where(e => e.EstadoActual == "autoDetectado")
+                    .FirstOrDefaultAsync();
+                
+                if (primerEvento != null)
+                {
+                    Console.WriteLine($"PRUEBA: Evento encontrado ID {primerEvento.Id}, Estado: {primerEvento.EstadoActual}");
+                    
+                    // Cambiar temporalmente a "TEST"
+                    primerEvento.EstadoActual = "TEST";
+                    var changes = await _context.SaveChangesAsync();
+                    Console.WriteLine($"PRUEBA: {changes} cambios guardados");
+                    
+                    // Volver al estado original
+                    primerEvento.EstadoActual = "autoDetectado";
+                    await _context.SaveChangesAsync();
+                    Console.WriteLine($"PRUEBA: Estado restaurado");
+                    
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PRUEBA ERROR: {ex.Message}");
+                return false;
+            }
         }
 
         public void Dispose()

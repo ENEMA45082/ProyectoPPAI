@@ -10,6 +10,7 @@ namespace ProyectoPPAI.Clases
     public class EventoSismico
     {
         // ========================            Atributos            ========================
+        private int id; // Campo para el ID de la base de datos
         private DateTime fechaHoraFin;
         private DateTime fechaHoraOcurrencia;
         private double latitudEpicentro;
@@ -60,6 +61,10 @@ namespace ProyectoPPAI.Clases
         // ========================     Métodos de acceso (getters y setters)      ========================
         #region Getters y Setters
 
+        // Métodos para el ID
+        public int GetId() => id;
+        public void SetId(int nuevoId) => id = nuevoId;
+
         public DateTime GetFechaHoraFin() => fechaHoraFin;
         public DateTime GetFechaHoraOcurrencia() => fechaHoraOcurrencia;
         public double GetLatitudEpicentro() => latitudEpicentro;
@@ -75,6 +80,10 @@ namespace ProyectoPPAI.Clases
         public string GetClasificacion() => clasificacion?.GetNombre();
         public string GetOrigenGeneracion() => origen?.GetNombre();
         public string GetAlcance() => alcance?.GetNombre();
+
+        // Métodos para obtener los objetos completos
+        public OrigenDeGeneracion GetOrigenDeGeneracionCompleto() => origen;
+        public AlcanceSismo GetAlcanceCompleto() => alcance;
 
         public List<SerieTemporal> GetSeriesTemporales() => seriesTemporales;
         public List<CambioEstado> GetCambiosDeEstado() => cambiosDeEstado;
@@ -157,11 +166,6 @@ namespace ProyectoPPAI.Clases
                 }
             }
         }
-
-
-
-
-
 
         // PARA FLUJOS ALTERNATIVOS
 

@@ -28,7 +28,7 @@ namespace ProyectoPPAI.Pantalla
             string textoIngresado = txtUsuario.Text;
             string contraseñaIngresada = txtContraseña.Text;
             pantallaRevisiones = new PantallaRevisiones();
-            pantallaRevisiones.OpcionMostrarEventos();
+            pantallaRevisiones.TomarOpcionRegistrarResultadoRevManual();
             pantallaRevisiones.CrearNuevaSesion(textoIngresado, contraseñaIngresada);
             // this.Hide();
         }

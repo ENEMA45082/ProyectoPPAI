@@ -3,21 +3,22 @@ using ProyectoPPAI.Clases;
 using ProyectoPPAI.Pantalla;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 
 namespace ProyectoPPAI
 {
     public class GestorRevisiones
     {
         // ========================            Atributos            ========================
-        private List<EventoSismico> listaEventosOriginal = new(); // Todos los eventos generados
-        private List<EventoSismico> listaEventosFiltrados = new(); // Solo los eventos autodetectados
-        public EventoSismico? eventoSeleccionado; // Evento actualmente seleccionado
-        public PantallaRevisiones? pantallaRevisiones; // Referencia a la pantalla de revisión
-        public List<IEstado> listaEstados = new(); // Lista de estados posibles
-        public Sesion? sesion; // Sesión actual activa
-        private GenerarEstados generadorEstados; // Generador de estados
-        private DateTime fechaHoraActual; // Fecha y hora actual para operaciones
-        private string? usuarioLogueado; // Usuario actualmente logueado
+        private List<EventoSismico> listaEventosOriginal = new();   // Todos los eventos generados
+        private List<EventoSismico> listaEventosFiltrados = new();  // Solo los eventos autodetectados
+        public EventoSismico? eventoSeleccionado;                   // Evento actualmente seleccionado
+        private DateTime fechaHoraActual;                           // Fecha y hora actual
+
+        public PantallaRevisiones? pantallaRevisiones;              // Referencia a la pantalla de revisión
+
+        public Sesion? sesion;                                      // Sesión actual activa
+        private string? usuarioLogueado;                            // Usuario actualmente logueado
 
         // Filtros seleccionados
         public string? alcanceSeleccionado;
@@ -25,27 +26,32 @@ namespace ProyectoPPAI
         public string? origenGeneracionSeleccionado;
 
         // Datos de series y muestras
-        public List<List<Dictionary<string, string>>> infoMuestras = new(); // Muestras por serie
-        public List<string> nombresEstaciones = new(); // Estaciones asociadas a las muestras
+        public List<List<Dictionary<string, string>>> infoMuestrasSismicas = new(); // Muestras por serie
+        public List<string> nombresEstaciones = new();                              // Estaciones asociadas a las muestras
+
+        // Atributo para controlar la visualización del mapa
+        private bool mostrarMapa;
+        // Atributo para controlar si el usuario quiere modificaciones
+        private bool permitirModificaciones;
+
+        // Repositorio para manejar la base de datos
+        private readonly EventoSismicoRepository _repository;
 
         // ========================           Constructor              ========================
-
-        // Constructor vacío: inicializa generador de estados
         public GestorRevisiones()
         {
-            generadorEstados = new GenerarEstados();
+            _repository = new EventoSismicoRepository();
         }
 
+
         // ========================     Métodos principales     ========================
-        #region Metodos Adicionales
+        #region Metodos DE SESION
         // Crea una nueva sesión con el usuario
         public void CrearNuevaSesion(string nombreUsuario, string contraseña)
         {
             Usuario user = CrearNuevoUsuario(nombreUsuario, contraseña);
             sesion = new Sesion(user);
 
-            var generar = new GenerarEstados();
-            listaEstados = generar.listaEstados;
         }
 
         // Crea un nuevo usuario con nombre y contraseña
@@ -55,15 +61,21 @@ namespace ProyectoPPAI
         }
         #endregion
 
-        // Genera 100 eventos aleatorios y filtra autodetectados
+        // Carga todos los eventos desde la BD y filtra autodetectados
         public async Task crearNuevaRevision()
         {
-            listaEventosOriginal = Generar.GenerarEventosAleatorios(100);
-            buscarEventosAutodetectados();
+            // Asegurar que la BD esté inicializada con datos
+            await _repository.InicializarBaseDatosConEventos();
+            
+            // Cargar TODOS los eventos desde la BD (no solo autodetectados)
+            listaEventosOriginal = await _repository.ObtenerTodosLosEventos();
+            
+            // Ahora filtrar los autodetectados de esa lista completa
+            await buscarEventosAutodetectados();
         }
 
-        // Filtra solo los eventos autodetectados y guarda sus datos
-        public void buscarEventosAutodetectados()
+        // Filtra solo los eventos autodetectados desde la listaEventosOriginal
+        public async Task buscarEventosAutodetectados()
         {
             var eventosConDatos = new List<(EventoSismico evento, object datos)>();
             
@@ -87,12 +99,14 @@ namespace ProyectoPPAI
                 .ToList();
 
             // Separar las listas manteniendo el mismo orden
-            listaEventosFiltrados = eventosOrdenados.Select(item => item.evento).ToList();
-            var listaEventosConDatos = eventosOrdenados.Select(item => item.datos).ToList();
+            listaEventosFiltrados = eventosOrdenados.Select(item => item.evento).ToList();// Extrae el EVENTO
+            var listaEventosConDatos = eventosOrdenados.Select(item => item.datos).ToList();// Extrae los DATOS
 
+            //•	Lógica de negocio(gestor) → Trabaja con objetos EventoSismico completos
             pantallaRevisiones.SetListaEventosOrdenados(listaEventosFiltrados);
-            
+
             // Los datos ya están procesados y ordenados, solo los pasamos a la pantalla
+            // •	Interfaz de usuario (pantalla) → Recibe datos ya formateados y listos para mostrar
             pantallaRevisiones.mostrarDatosOrdenados(listaEventosConDatos);
         }
 
@@ -110,15 +124,6 @@ namespace ProyectoPPAI
 
         // ========================     Métodos de estado     ========================
 
-        // Devuelve el estado Bloqueado en Revisión
-        public IEstado buscarBloqueadoEnRevision()
-        {
-            if (listaEstados == null || listaEstados.Count == 0)
-                return null;
-
-            return listaEstados.FirstOrDefault(e => e.sosBloqueadoEnRevision());
-        }
-
         // Cambia el estado del evento a Bloqueado en Revisión
         public void getFechaHoraActual()
         {
@@ -129,6 +134,15 @@ namespace ProyectoPPAI
         {
             getFechaHoraActual(); // Llama al método para establecer la fecha y hora actual
             evento.Revisar(fechaHoraActual); // Usa la fecha y hora actual establecida
+            
+            // Actualizar estado en la base de datos usando datos únicos del evento
+            _ = Task.Run(async () => {
+                await _repository.ActualizarEstadoEventoPorDatos(
+                    evento.GetFechaHoraOcurrencia(),
+                    evento.GetLatitudEpicentro(),
+                    evento.GetLongitudEpicentro(),
+                    "bloqueadoEnRevision");
+            });
         }
 
 
@@ -158,12 +172,13 @@ namespace ProyectoPPAI
         // Obtiene info de las series temporales y muestras del evento
         public void tomarInfoSeriesYMuestras()
         {
-            (infoMuestras, nombresEstaciones) = eventoSeleccionado.TomarInfoSeriesYMuestras();
+            (infoMuestrasSismicas, nombresEstaciones) = eventoSeleccionado.TomarInfoSeriesYMuestras();
+            OrdenarPorEstacionSismologica();
         }
         // =========================================================================================================================================================
         public void OrdenarPorEstacionSismologica() 
         {
-
+            
         }
 
         // Busca y muestra datos principales del evento
@@ -210,36 +225,19 @@ namespace ProyectoPPAI
         #region Flujo Alternativo
 
         //                                                  PARA EL FLUJO ALTERNATIVO
-        // Devuelve el estado Confirmado
-        public IEstado buscarConfirmado()
-        {
-            if (listaEstados == null || listaEstados.Count == 0)
-                return null;
 
-            return listaEstados.FirstOrDefault(e => e.sosConfirmado());
-        }
 
         // Confirma el evento sismico seleccionado
         public void ConfirmarEventoSismico()
         {
-            IEstado estado = buscarConfirmado();
-            eventoSeleccionado.Confirmar(estado);
+            
         }
 
-        // Devuelve el estado Derivado
-        public IEstado buscarDerivado()
-        {
-            if (listaEstados == null || listaEstados.Count == 0)
-                return null;
 
-            return listaEstados.FirstOrDefault(e => e.sosDerivado());
-        }
 
         // Cambia el estado del evento a Derivador
         public void DerivarEventoSismico()
         {
-            IEstado estado = buscarDerivado();
-            eventoSeleccionado.Derivar(estado);
         }
 
         // Rechaza un evento si cumple con los requisitos
@@ -308,11 +306,53 @@ namespace ProyectoPPAI
         }
         public void RechazarEventoSismico()
         {
-            
             eventoSeleccionado.Rechazar(fechaHoraActual, usuarioLogueado);
+            
+            // Actualizar estado en la base de datos usando datos únicos del evento
+            _ = Task.Run(async () => {
+                await _repository.ActualizarEstadoEventoPorDatos(
+                    eventoSeleccionado.GetFechaHoraOcurrencia(),
+                    eventoSeleccionado.GetLatitudEpicentro(),
+                    eventoSeleccionado.GetLongitudEpicentro(),
+                    "rechazado");
+            });
         }
 
         #endregion
 
+        // Método para generar y mostrar el sismograma
+        public void llamarCuGenerarSismograma()
+        {
+            // Ruta de la imagen del sismograma (puedes configurar esta ruta según tu proyecto)
+            string rutaImagen = @"E:\Apps y Recursos\Nueva carpeta\ProyectoPPAI-v2.0\ProyectoPPAI-v1\FotoSismograma.jpg";
+            
+            // Validar que existe la imagen
+            if (System.IO.File.Exists(rutaImagen))
+            {
+                // Crear y mostrar la ventana del sismograma
+                PantallaSismograma ventanaSismograma = new PantallaSismograma(rutaImagen);
+                ventanaSismograma.Show(); // Mostrar la ventana
+            }
+            else
+            {
+                // Informar error si no se encuentra la imagen
+                MessageBox.Show("No se encontró la imagen del sismograma en la ruta especificada.", 
+                               "Error", 
+                               MessageBoxButtons.OK, 
+                               MessageBoxIcon.Error);
+            }
+        }
+
+        // Método que recibe el retorno de la pantalla para no mostrar el mapa
+        public void tomarNoVerMapa()
+        {
+            mostrarMapa = false;
+        }
+
+        // Método que recibe el retorno de la pantalla para no modificar
+        public void tomarOpcionNoModificacion()
+        {
+            permitirModificaciones = false;
+        }
     }
 }

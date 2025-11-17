@@ -21,7 +21,7 @@ namespace ProyectoPPAI.Pantalla
         private GestorRevisiones gestorRevisiones;
         public List<EventoSismico> listaEventosOrdenados;
         private EventoSismico eventoSeleccionado;
-
+        private bool visualizarMapa = true; // Atributo para controlar la visualización del mapa
 
         // Constructor
         public PantallaRevisiones()
@@ -38,13 +38,13 @@ namespace ProyectoPPAI.Pantalla
         }
 
         // Método para iniciar la carga y generación de eventos
-        public async void OpcionMostrarEventos()
+        public async void TomarOpcionRegistrarResultadoRevManual()
         {
             habilitarPantalla();
             await gestorRevisiones.crearNuevaRevision();
         }
         // Doble click en un evento para seleccionarlo y actualizar su estado
-        private async void TomarEventoSeleccionado(object sender, DataGridViewCellEventArgs e)
+        private async void TomarEventoSismicoSeleccionado(object sender, DataGridViewCellEventArgs e)
         {
             dataGridViewSeleccionado.Visible = true;
             labelTitulo.Visible = false;
@@ -63,7 +63,9 @@ namespace ProyectoPPAI.Pantalla
             {
                 eventoSeleccionado = listaEventosOrdenados[e.RowIndex];
                 await gestorRevisiones.tomarEventoSismicoSeleccionado(eventoSeleccionado);
-                mostrarSeriesYMuestras(gestorRevisiones.infoMuestras, gestorRevisiones.nombresEstaciones); // muestra las series en el nuevo DataGridView
+                // Llamar al método del gestor para mostrar el sismograma
+                gestorRevisiones.llamarCuGenerarSismograma();
+                mostrarSeriesYMuestras(gestorRevisiones.infoMuestrasSismicas, gestorRevisiones.nombresEstaciones); // muestra las series en el nuevo DataGridView
 
                 MessageBox.Show(
                     $"✅ El estado del sismo fue cambiado con éxito.\n\n🌍 Estado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}",
@@ -71,18 +73,6 @@ namespace ProyectoPPAI.Pantalla
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
                 );
-            }
-            // Ruta absoluta de la imagen
-            string rutaImagen = @"E:\Apps y Recursos\Nueva carpeta\ProyectoPPAI-v2.0\ProyectoPPAI-v1\FotoSismograma.jpg"; // Cambiala por tu ruta real
-
-            if (System.IO.File.Exists(rutaImagen))
-            {
-                PantallaSismograma ventana = new PantallaSismograma(rutaImagen);
-                ventana.Show(); // o ShowDialog() si querés que sea modal
-            }
-            else
-            {
-                MessageBox.Show("No se encontró la imagen en la ruta especificada.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -203,6 +193,12 @@ namespace ProyectoPPAI.Pantalla
             dataGridViewSerie.DataSource = tabla;
             dataGridViewSerie.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
             dataGridViewSerie.Refresh();
+
+            // DESPUÉS de mostrar las series, habilitar la opción de visualización del mapa
+            habilitarVisualizacionMapa();
+            
+            // DESPUÉS de habilitar la visualización del mapa, solicitar opción de modificación
+            solicitarOpcionModificacion();
         }
 
 
@@ -237,7 +233,25 @@ namespace ProyectoPPAI.Pantalla
 
         private void checkBoxMostrarDatos_Click(object sender, EventArgs e){ }
 
-        private void labelVisualizarMapa_Click(object sender, EventArgs e){ }
+        private void labelVisualizarMapa_Click(object sender, EventArgs e)
+        {
+            // Permitir al usuario cambiar la configuración del mapa al hacer clic
+            DialogResult resultado = MessageBox.Show(
+                "¿Desea cambiar la configuración de visualización del mapa?",
+                "Configurar Mapa",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question
+            );
+
+            if (resultado == DialogResult.Yes)
+            {
+                habilitarVisualizacionMapa(); // Cambia el estado
+            }
+            else if (resultado == DialogResult.No)
+            {
+                tomarNoVerMapa(); // Deshabilita el mapa
+            }
+        }
 
         private void finCU(object sender, EventArgs e)
         {
@@ -358,5 +372,85 @@ namespace ProyectoPPAI.Pantalla
         private void panel5_Paint(object sender, PaintEventArgs e) { }
         private void panel3_Paint_1(object sender, PaintEventArgs e) { }
         #endregion
+
+        // Método para habilitar o deshabilitar la visualización del mapa
+        public void habilitarVisualizacionMapa()
+        {
+            // Cambiar el estado de visualización del mapa
+            visualizarMapa = !visualizarMapa;
+            
+            // Actualizar la interfaz según la preferencia del usuario
+            if (visualizarMapa)
+            {
+                labelVisualizarMapa.Text = "🗺️ Ver Mapa";
+                labelVisualizarMapa.ForeColor = Color.LightGreen;
+            }
+            else
+            {
+                labelVisualizarMapa.Text = "🚫 Mapa Deshabilitado";
+                labelVisualizarMapa.ForeColor = Color.LightCoral;
+            }
+        }
+
+        // Método que recibe cuando el usuario no quiere ver el mapa
+        public void tomarNoVerMapa()
+        {
+            visualizarMapa = false;
+            labelVisualizarMapa.Text = "🚫 No mostrar mapa";
+            labelVisualizarMapa.ForeColor = Color.Gray;
+            labelVisualizarMapa.Enabled = false;
+            
+            // Enviar al gestor la decisión del usuario
+            gestorRevisiones.tomarNoVerMapa();
+            
+            MessageBox.Show(
+                "La visualización del mapa ha sido deshabilitada por el usuario.",
+                "Configuración de Mapa",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
+        }
+
+        // Método getter para consultar el estado
+        public bool EstaVisualizacionMapaHabilitada()
+        {
+            return visualizarMapa;
+        }
+
+        // Método para solicitar al usuario si desea modificar el evento
+        public void solicitarOpcionModificacion()
+        {
+            DialogResult resultado = MessageBox.Show(
+                "¿Desea realizar modificaciones al evento sísmico seleccionado?",
+                "Opción de Modificación",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question
+            );
+
+            if (resultado == DialogResult.No)
+            {
+                tomarOpcionNoModificacion();
+            }
+            // Si elige Yes, continúa con el flujo normal (botones habilitados)
+        }
+
+        // Método que se ejecuta cuando el usuario no quiere modificar
+        public void tomarOpcionNoModificacion()
+        {
+            // Enviar al gestor la decisión del usuario
+            gestorRevisiones.tomarOpcionNoModificacion();
+            
+            MessageBox.Show(
+                "El evento sísmico se mantendrá sin modificaciones.",
+                "Sin Modificación",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
+            
+            // Deshabilitar botones de modificación
+            button1.Enabled = false; // Rechazar
+            button2.Enabled = false; // Confirmar
+            btnDerivarAExperto.Enabled = false; // Derivar
+        }
     }
 }

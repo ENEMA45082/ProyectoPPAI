@@ -65,7 +65,7 @@ namespace ProyectoPPAI.Pantalla
             dataGridViewEventos.RowHeadersWidth = 51;
             dataGridViewEventos.Size = new Size(900, 385);
             dataGridViewEventos.TabIndex = 0;
-            dataGridViewEventos.CellContentDoubleClick += TomarEventoSeleccionado;
+            dataGridViewEventos.CellContentDoubleClick += TomarEventoSismicoSeleccionado;
             // 
             // dataGridViewSeleccionado
             // 

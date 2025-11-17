@@ -7,19 +7,19 @@ namespace ProyectoPPAI.BaseDatos
 {
     public class GenerarEstados
     {
-        public Estado autoDetectado = new Estado("autoDetectado", "El evento fue registrado automáticamente");
-        public Estado bloqueado = new Estado("derivado", "El evento fue derivado manualmente");
-        public Estado rechazado = new Estado("rechazado", "El evento fue registrado manualmente");
-        public Estado pendienteRevision = new Estado("PendienteRevision", "El evento fue registrado manualmente y está pendiente de revisión");
-        public Estado confirmado = new Estado("confirmado", "El evento fue registrado manualmente y ha sido confirmado por un operador");
-        public Estado bloqueadoEnRevision = new Estado("bloqueadoEnRevision", "El evento está siendo revisado");
+        public IEstado autoDetectado = new AutoDetectado();
+        public IEstado bloqueado = new Derivado();
+        public IEstado rechazado = new Rechazado();
+                public IEstado pendienteRevision = new PendienteRevision();
+        public IEstado confirmado = new Confirmado();
+        public IEstado bloqueadoEnRevision = new BloqueadoEnRevision();
         
-        // ?? Lista para guardar todos los estados
-        public List<Estado> listaEstados;
+        // Lista para guardar todos los estados
+        public List<IEstado> listaEstados;
 
         public GenerarEstados()
         {
-                listaEstados = new List<Estado>
+                listaEstados = new List<IEstado>
             {
                 autoDetectado,
                 bloqueado,

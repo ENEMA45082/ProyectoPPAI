@@ -1,7 +1,8 @@
-﻿using System.Linq;
-using ProyectoPPAI.BaseDatos;
-using ProyectoPPAI.Pantalla;
+﻿using ProyectoPPAI.BaseDatos;
 using ProyectoPPAI.Clases;
+using ProyectoPPAI.Pantalla;
+using System.Diagnostics;
+using System.Linq;
 
 namespace ProyectoPPAI
 {
@@ -12,9 +13,11 @@ namespace ProyectoPPAI
         private List<EventoSismico> listaEventosFiltrados = new(); // Solo los eventos autodetectados
         public EventoSismico? eventoSeleccionado; // Evento actualmente seleccionado
         public PantallaRevisiones? pantallaRevisiones; // Referencia a la pantalla de revisión
-        public List<Estado> listaEstados = new(); // Lista de estados posibles
+        public List<IEstado> listaEstados = new(); // Lista de estados posibles
         public Sesion? sesion; // Sesión actual activa
         private GenerarEstados generadorEstados; // Generador de estados
+        private DateTime fechaHoraActual; // Fecha y hora actual para operaciones
+        private string? usuarioLogueado; // Usuario actualmente logueado
 
         // Filtros seleccionados
         public string? alcanceSeleccionado;
@@ -59,43 +62,47 @@ namespace ProyectoPPAI
             buscarEventosAutodetectados();
         }
 
-        // Filtra solo los eventos autodetectados
+        // Filtra solo los eventos autodetectados y guarda sus datos
         public void buscarEventosAutodetectados()
         {
+            var eventosConDatos = new List<(EventoSismico evento, object datos)>();
+            
             foreach (var evento in listaEventosOriginal)
             {
-                if (evento.SosAutoDetectado())
-                    listaEventosFiltrados.Add(evento);
+                var datosEvento = evento.SosAutoDetectado();
+                if (datosEvento != null)
+                {
+                    eventosConDatos.Add((evento, datosEvento));
+                }
             }
 
-            ordenarPorFechaHoraConcurrencia();
+            ordenarPorFechaHoraConcurrencia(eventosConDatos);
         }
-        public void ordenarPorFechaHoraConcurrencia()
+
+        public void ordenarPorFechaHoraConcurrencia(List<(EventoSismico evento, object datos)> eventosConDatos)
         {
-            listaEventosFiltrados = listaEventosFiltrados
-                .OrderBy(ev => ev.GetFechaHoraOcurrencia())
+            // Ordenar la lista completa por fecha de ocurrencia
+            var eventosOrdenados = eventosConDatos
+                .OrderBy(item => item.evento.GetFechaHoraOcurrencia())
                 .ToList();
 
-            pantallaRevisiones.listaEventosOrdenados = listaEventosFiltrados; // PASA LA LISTA ORIGINAL
-            var listaAnonima = listaEventosFiltrados.Select(ev => new
-            {
-                FechaHoraOcurrencia = ev.GetFechaHoraOcurrencia().ToString("dd/MM/yyyy HH:mm"),
-                LatitudHipocentro = ev.GetLatitudHipocentro(),
-                LongitudHipocentro = ev.GetLongitudHipocentro(),
-                LatitudEpicentro = ev.GetLatitudEpicentro(),
-                LongitudEpicentro = ev.GetLongitudEpicentro(),
-                MagnitudRichter = ev.GetValorMagnitud(),
-            }).ToList();
+            // Separar las listas manteniendo el mismo orden
+            listaEventosFiltrados = eventosOrdenados.Select(item => item.evento).ToList();
+            var listaEventosConDatos = eventosOrdenados.Select(item => item.datos).ToList();
 
-            pantallaRevisiones.mostrarDatosOrdenados(listaAnonima);
+            pantallaRevisiones.SetListaEventosOrdenados(listaEventosFiltrados);
+            
+            // Los datos ya están procesados y ordenados, solo los pasamos a la pantalla
+            pantallaRevisiones.mostrarDatosOrdenados(listaEventosConDatos);
         }
 
         // Selecciona un evento, lo bloquea y carga info asociada
         public async Task tomarEventoSismicoSeleccionado(EventoSismico evento)
         {
             eventoSeleccionado = evento;
-            var estadoBloqueado = buscarBloqueadoEnRevision();
-            bloquearEventoSismico(eventoSeleccionado, estadoBloqueado);
+            //var estadoBloqueado = buscarBloqueadoEnRevision();
+
+            bloquearEventoSismico(eventoSeleccionado);
             BuscarDatos();
             tomarInfoSeriesYMuestras();
 
@@ -104,18 +111,24 @@ namespace ProyectoPPAI
         // ========================     Métodos de estado     ========================
 
         // Devuelve el estado Bloqueado en Revisión
-        public Estado buscarBloqueadoEnRevision()
+        public IEstado buscarBloqueadoEnRevision()
         {
             if (listaEstados == null || listaEstados.Count == 0)
                 return null;
 
-            return listaEstados.FirstOrDefault(e => e.SosBloqueadoEnRevision());
+            return listaEstados.FirstOrDefault(e => e.sosBloqueadoEnRevision());
         }
 
         // Cambia el estado del evento a Bloqueado en Revisión
-        public void bloquearEventoSismico(EventoSismico evento, Estado estado)
+        public void getFechaHoraActual()
         {
-            evento.Revisar(estado);
+            fechaHoraActual = DateTime.Now;
+        }
+
+        public void bloquearEventoSismico(EventoSismico evento)
+        {
+            getFechaHoraActual(); // Llama al método para establecer la fecha y hora actual
+            evento.Revisar(fechaHoraActual); // Usa la fecha y hora actual establecida
         }
 
 
@@ -178,13 +191,13 @@ namespace ProyectoPPAI
 
 
         // Devuelve el estado Rechazado
-        public Estado BuscarEstadoRechazado()
-        {
-            if (listaEstados == null || listaEstados.Count == 0)
-                return null;
+        //public IEstado BuscarEstadoRechazado()
+        //{
+        //    if (listaEstados == null || listaEstados.Count == 0)
+        //        return null;
 
-            return listaEstados.FirstOrDefault(e => e.SosRechazado());
-        }
+        //    return listaEstados.FirstOrDefault(e => e.sosRechazado());
+        //}
 
         // Devuelve el nombre del usuario actual
         public string buscarUsuario()
@@ -198,49 +211,105 @@ namespace ProyectoPPAI
 
         //                                                  PARA EL FLUJO ALTERNATIVO
         // Devuelve el estado Confirmado
-        public Estado buscarConfirmado()
+        public IEstado buscarConfirmado()
         {
             if (listaEstados == null || listaEstados.Count == 0)
                 return null;
 
-            return listaEstados.FirstOrDefault(e => e.SosConfirmado());
+            return listaEstados.FirstOrDefault(e => e.sosConfirmado());
         }
 
         // Confirma el evento sismico seleccionado
         public void ConfirmarEventoSismico()
         {
-            Estado estado = buscarConfirmado();
+            IEstado estado = buscarConfirmado();
             eventoSeleccionado.Confirmar(estado);
         }
 
         // Devuelve el estado Derivado
-        public Estado buscarDerivado()
+        public IEstado buscarDerivado()
         {
             if (listaEstados == null || listaEstados.Count == 0)
                 return null;
 
-            return listaEstados.FirstOrDefault(e => e.SosDerivado());
+            return listaEstados.FirstOrDefault(e => e.sosDerivado());
         }
 
-        // Cambia el estado del evento a Derivado
+        // Cambia el estado del evento a Derivador
         public void DerivarEventoSismico()
         {
-            Estado estado = buscarDerivado();
+            IEstado estado = buscarDerivado();
             eventoSeleccionado.Derivar(estado);
         }
 
         // Rechaza un evento si cumple con los requisitos
         public String TomarRechazarEvento()
         {
-            // ACA VALIDAMOS QUE EXISTAN DATOS PARA RECHAZAR EL EVENTO
-            Estado estado = BuscarEstadoRechazado();
-            if (eventoSeleccionado.GetMagnitudRichter() != null
-                && eventoSeleccionado.GetAlcance() != null
-                && eventoSeleccionado.GetOrigenGeneracion() != null)
+            ValidarExistenDatos();
+            ObtenerASLogueado();
+            getFechaHoraActual(); // Llama al método para establecer la fecha y hora actual
+            RechazarEventoSismico();
+            return usuarioLogueado;
+        }
+        public string ValidarExistenDatos()
+        {
+            // Validar que existe un evento seleccionado
+            if (eventoSeleccionado == null)
             {
-                eventoSeleccionado.Rechazar(estado);
+                throw new Exception("No hay evento seleccionado para validar.");
             }
-            return sesion.GetUsuario();
+
+            // Validar que exista magnitud
+            if (eventoSeleccionado.GetMagnitudRichter() == null)
+            {
+                throw new Exception("El evento no tiene magnitud Richter asociada.");
+            }
+
+            // Validar que exista alcance
+            if (string.IsNullOrEmpty(eventoSeleccionado.GetAlcance()))
+            {
+                throw new Exception("El evento no tiene alcance definido.");
+            }
+
+            // Validar que exista origen de generación
+            if (string.IsNullOrEmpty(eventoSeleccionado.GetOrigenGeneracion()))
+            {
+                throw new Exception("El evento no tiene origen de generación definido.");
+            }
+
+            // Validar que se haya seleccionado una acción (verificar filtros seleccionados)
+            if (string.IsNullOrEmpty(alcanceSeleccionado) && 
+                string.IsNullOrEmpty(clasificacionSeleccionado) && 
+                string.IsNullOrEmpty(origenGeneracionSeleccionado))
+            {
+                throw new Exception("Debe seleccionar al menos una acción (alcance, clasificación u origen de generación).");
+            }
+
+            // Validar series temporales (código existente)
+            if (eventoSeleccionado.GetSeriesTemporales().Count == 0)
+            {
+                throw new Exception("El evento no tiene series temporales asociadas.");
+            }
+
+            foreach (var serie in eventoSeleccionado.GetSeriesTemporales())
+            {
+                if (serie.GetMuestrasSismicas().Count == 0)
+                {
+                    throw new Exception("Una de las series temporales no tiene muestras asociadas.");
+                }
+            }
+
+            return "Datos validados correctamente.";
+        }
+        public string ObtenerASLogueado()
+        {
+            usuarioLogueado = sesion.GetUsuario();
+            return usuarioLogueado;
+        }
+        public void RechazarEventoSismico()
+        {
+            
+            eventoSeleccionado.Rechazar(fechaHoraActual, usuarioLogueado);
         }
 
         #endregion

@@ -21,7 +21,7 @@ namespace ProyectoPPAI.BaseDatos
 
             var generadorEstados = new GenerarEstados();
 
-            var listaEstados = new List<Estado>
+            var listaEstados = new List<IEstado>
             {
                 generadorEstados.autoDetectado,
                 generadorEstados.bloqueado,
@@ -105,7 +105,7 @@ namespace ProyectoPPAI.BaseDatos
                     magnitudRichter
                 );
 
-                var cambioEstado = new CambioEstado(fechaOcurrencia, estado);
+                var cambioEstado = new CambioEstado(fechaOcurrencia, estado, null);
                 evento.SetCambiosDeEstado(new List<CambioEstado> { cambioEstado });
 
                 int cantidadSeries = 4;

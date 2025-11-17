@@ -12,17 +12,19 @@ namespace ProyectoPPAI.Clases
         // ========================            Atributos            ========================
         private DateTime fechaHoraDesde;
         private DateTime? fechaHoraFin;  // Null porque puede estar sin defeinir
+        private String responsable;
 
         // Relaciones 1 a 1
-        private Estado estado;  
+        private IEstado estado;  
 
         // ========================           Constructores              ========================
         public CambioEstado() { }
 
-        public CambioEstado(DateTime fechaHoraDesde, Estado estado)
+        public CambioEstado(DateTime fechaHoraDesde, IEstado estado, String responsable)
         {
             this.fechaHoraDesde = fechaHoraDesde;
             this.estado = estado;
+            this.responsable = responsable;
             this.fechaHoraFin = null; // Por defecto, no tiene fin
         }
 
@@ -40,23 +42,23 @@ namespace ProyectoPPAI.Clases
             return fechaHoraFin;
         }
 
-        public Estado GetEstado()
+        public IEstado GetEstado()
         {
             return estado;
         }
 
         // Métodos Set
-        public void SetFechaHoraDesde()
+        public void SetFechaHoraDesde(DateTime fechaHora)
         {
-            fechaHoraDesde = DateTime.Now;
+            fechaHoraDesde = fechaHora;
         }
 
-        public void SetFechaHoraFin()
+        public void SetFechaHoraFin(DateTime fechaHora)
         {
-            fechaHoraFin = DateTime.Now;
+            fechaHoraFin = fechaHora;
         }
 
-        public void SetEstado(Estado nuevoEstado)
+        public void SetEstado(IEstado nuevoEstado)
         {
             estado = nuevoEstado;
         }

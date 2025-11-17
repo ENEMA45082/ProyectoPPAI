@@ -17,9 +17,10 @@ namespace ProyectoPPAI.Clases
         private double longitudEpicentro;
         private double longitudHipocentro;
         private double valorMagnitud;
+        
 
         // ========================            Relaciones 1:1            ========================
-        private Estado estadoActual;
+        private IEstado estadoActual;
         private ClasificacionSismo clasificacion;
         private OrigenDeGeneracion origen;
         private AlcanceSismo alcance;
@@ -36,7 +37,7 @@ namespace ProyectoPPAI.Clases
                              double latEpic, double latHipo,
                              double lonEpic, double lonHipo,
                              double valorMagnitud,
-                             Estado estadoActual,
+                             IEstado estadoActual,
                              ClasificacionSismo clasificacion,
                              OrigenDeGeneracion origen,
                              AlcanceSismo alcance,
@@ -67,7 +68,8 @@ namespace ProyectoPPAI.Clases
         public double GetLongitudHipocentro() => longitudHipocentro;
         public double GetValorMagnitud() => valorMagnitud;
 
-        public Estado GetEstadoActual() => estadoActual;
+        public IEstado GetEstadoActual() => estadoActual;
+        public void SetEstadoActual(IEstado estado) => estadoActual = estado;
         public MagnitudRichter GetMagnitudRichter() => magnitudRichter;
 
         public string GetClasificacion() => clasificacion?.GetNombre();
@@ -82,14 +84,6 @@ namespace ProyectoPPAI.Clases
             cambiosDeEstado = cambios;
             if (cambios != null && cambios.Count > 0)
                 estadoActual = cambios.Last().GetEstado();
-        }
-
-        public void CambiarNombreEstado(string nuevoNombre)
-        {
-            if (estadoActual != null)
-            {
-                estadoActual.SetNombre(nuevoNombre);
-            }
         }
 
         #endregion
@@ -111,9 +105,22 @@ namespace ProyectoPPAI.Clases
             estadoActual = cambio.GetEstado();
         }
         // aca empieza
-        public bool SosAutoDetectado()
+        public object SosAutoDetectado()
         {
-            return estadoActual != null && estadoActual.SosAutoDetectado();
+            if (estadoActual != null && estadoActual.sosAutoDetectado())
+            {
+                return new
+                {
+                    FechaHoraOcurrencia = GetFechaHoraOcurrencia().ToString("dd/MM/yyyy HH:mm"),
+                    LatitudHipocentro = GetLatitudHipocentro(),
+                    LongitudHipocentro = GetLongitudHipocentro(),
+                    LatitudEpicentro = GetLatitudEpicentro(),
+                    LongitudEpicentro = GetLongitudEpicentro(),
+                    MagnitudRichter = GetValorMagnitud(),
+                    Evento = this
+                };
+            }
+            return null;
         }
 
         public (List<List<Dictionary<string, string>>>, List<string>) TomarInfoSeriesYMuestras()
@@ -130,18 +137,20 @@ namespace ProyectoPPAI.Clases
             return (muestras, nombresEstaciones);
         }
 
-        public void Rechazar(Estado nuevoEstado)
+        public void Rechazar(DateTime fechaHora,String analista)
         {
-            CambiarEstadoActual(nuevoEstado);
+            CambioEstado[] cambiosArray = cambiosDeEstado.ToArray();
+            estadoActual.Rechazar(cambiosArray, this, fechaHora, analista);
         }
-        private void CambiarEstadoActual(Estado nuevoEstado)
+
+        private void CambiarEstadoActual(IEstado nuevoEstado)
         {
             foreach (var cambio in cambiosDeEstado)
             {
                 if (cambio.SosActual())
                 {
-                    cambio.SetFechaHoraFin();
-                    var nuevoCambio = new CambioEstado(DateTime.Now, nuevoEstado);
+                    //cambio.SetFechaHoraFin();
+                    var nuevoCambio = new CambioEstado(DateTime.Now, nuevoEstado, null);
                     cambiosDeEstado.Add(nuevoCambio);
                     estadoActual = nuevoEstado;
                     break;
@@ -156,16 +165,18 @@ namespace ProyectoPPAI.Clases
 
         // PARA FLUJOS ALTERNATIVOS
 
-        public void Revisar(Estado nuevoEstado)
+        public void Revisar(DateTime fechaHoraActual)
         {
-            CambiarEstadoActual(nuevoEstado);
+            CambioEstado[] cambiosArray = cambiosDeEstado.ToArray();
+            estadoActual.Revisar(cambiosArray, this, fechaHoraActual);
         }
-        public void Confirmar(Estado nuevoEstado)
+
+        public void Confirmar(IEstado nuevoEstado)
         {
             CambiarEstadoActual(nuevoEstado);
         }
 
-        public void Derivar(Estado nuevoEstado)
+        public void Derivar(IEstado nuevoEstado)
         {
             CambiarEstadoActual(nuevoEstado);
         }

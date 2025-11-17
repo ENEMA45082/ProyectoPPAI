@@ -94,6 +94,7 @@ namespace ProyectoPPAI.Pantalla
             dataGridViewEventos.DataSource = listaEventos;
             dataGridViewEventos.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
             dataGridViewEventos.Refresh();
+
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -248,6 +249,12 @@ namespace ProyectoPPAI.Pantalla
         {             // Crear una nueva sesión
             gestorRevisiones.CrearNuevaSesion(nombreUsuario, contraseñaIngresada);
             // Aquí puedes agregar lógica para manejar la nueva sesión
+        }
+
+        // Setter para la lista de eventos ordenados
+        public void SetListaEventosOrdenados(List<EventoSismico> listaEventos)
+        {
+            listaEventosOrdenados = listaEventos;
         }
         #endregion
 

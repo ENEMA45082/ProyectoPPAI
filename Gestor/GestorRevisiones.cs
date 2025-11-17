@@ -18,7 +18,7 @@ namespace ProyectoPPAI
         public PantallaRevisiones? pantallaRevisiones;              // Referencia a la pantalla de revisión
 
         public Sesion? sesion;                                      // Sesión actual activa
-        private string? usuarioLogueado;                            // Usuario actualmente logueado
+        private Usuario? usuarioLogueado;                            // Usuario actualmente logueado
 
         // Filtros seleccionados
         public string? alcanceSeleccionado;
@@ -217,7 +217,7 @@ namespace ProyectoPPAI
         //}
 
         // Devuelve el nombre del usuario actual
-        public string buscarUsuario()
+        public Usuario buscarUsuario()
         {
             return sesion.GetUsuario();
         }
@@ -243,7 +243,7 @@ namespace ProyectoPPAI
         }
 
         // Rechaza un evento si cumple con los requisitos
-        public async Task<String> TomarRechazarEvento()
+        public async Task<Usuario> TomarRechazarEvento()
         {
             ValidarExistenDatos();
             ObtenerASLogueado();
@@ -301,9 +301,13 @@ namespace ProyectoPPAI
 
             return "Datos validados correctamente.";
         }
-        public string ObtenerASLogueado()
+        public Usuario ObtenerASLogueado()
         {
-            usuarioLogueado = sesion.GetUsuario();
+            usuarioLogueado = sesion.GetUsuario() as Usuario; // Usar un cast explícito
+            if (usuarioLogueado == null)
+            {
+                throw new InvalidCastException("El usuario obtenido no es del tipo Usuario.");
+            }
             return usuarioLogueado;
         }
         public async Task RechazarEventoSismico()

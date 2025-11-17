@@ -108,7 +108,7 @@ namespace ProyectoPPAI.BaseDatos
 
         // Actualizar estado de un evento en la BD usando datos únicos
         // Método completo para cambiar estado con persistencia y tracking por ID
-        public async Task CambiarEstadoEventoPorId(int eventoId, string estadoAnterior, string nuevoEstado, string usuario = "Sistema")
+        public async Task CambiarEstadoEventoPorId(int eventoId, string estadoAnterior, string nuevoEstado, Usuario usuario = null)
         {
             var evento = await _context.EventosSismicos
                 .Include(e => e.CambiosEstado)
@@ -124,7 +124,7 @@ namespace ProyectoPPAI.BaseDatos
                     FechaHoraCambio = DateTime.Now,
                     EstadoAnterior = estadoAnterior,
                     EstadoNuevo = nuevoEstado,
-                    UsuarioModificacion = string.IsNullOrEmpty(usuario) ? "Sistema" : usuario,
+                    UsuarioModificacion = usuario?.GetNombre() ?? "Sistema", // Corregido para obtener el nombre del usuario
                     EventoSismicoId = evento.Id
                 };
                 

@@ -146,7 +146,7 @@ namespace ProyectoPPAI.Clases
             return (muestras, nombresEstaciones);
         }
 
-        public void Rechazar(DateTime fechaHora,String analista)
+        public void Rechazar(DateTime fechaHora,Usuario analista)
         {
             CambioEstado[] cambiosArray = cambiosDeEstado.ToArray();
             estadoActual.Rechazar(cambiosArray, this, fechaHora, analista);

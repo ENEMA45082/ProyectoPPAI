@@ -89,10 +89,10 @@ namespace ProyectoPPAI.Pantalla
 
         private async void button1_Click(object sender, EventArgs e)
         {
-            string usuario = await gestorRevisiones.TomarRechazarEvento();
+            Usuario usuario = await gestorRevisiones.TomarRechazarEvento();
             MessageBox.Show(
-                $"El evento sísmico fue rechazado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario}",
-                $"Estado Actual\n Rechazado por: {usuario}",
+                $"El evento sísmico fue rechazado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario.GetNombre()}",
+                $"Estado Actual\n Rechazado por: {usuario.GetNombre()}",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
             );
@@ -209,10 +209,10 @@ namespace ProyectoPPAI.Pantalla
         private void button2_Click(object sender, EventArgs e)
         {
             gestorRevisiones.ConfirmarEventoSismico();
-            string usuario = gestorRevisiones.buscarUsuario();
+            Usuario usuario = gestorRevisiones.buscarUsuario();
             MessageBox.Show(
-                $"El evento sísmico fue modificado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario}",
-                $"Estado Actual\n Modificado por: {usuario}",
+                $"El evento sísmico fue modificado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario.GetNombre()}",
+                $"Estado Actual\n Modificado por: {usuario.GetNombre()}",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
             );
@@ -221,10 +221,10 @@ namespace ProyectoPPAI.Pantalla
         private void btnDerivarAExperto_Click(object sender, EventArgs e)
         {
             gestorRevisiones.DerivarEventoSismico();
-            string usuario = gestorRevisiones.buscarUsuario();
+            Usuario usuario = gestorRevisiones.buscarUsuario();
             MessageBox.Show(
-                $"El evento sísmico fue modificado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario}",
-                $"Estado Actual\n Modificado por: {usuario}",
+                $"El evento sísmico fue modificado con éxito.\nEstado actual: {eventoSeleccionado.GetEstadoActual().GetNombre()}\n Modificado por: {usuario.GetNombre()}",
+                $"Estado Actual\n Modificado por: {usuario.GetNombre()}",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
             );
@@ -448,7 +448,7 @@ namespace ProyectoPPAI.Pantalla
             );
             
             // Deshabilitar botones de modificación
-            button1.Enabled = false; // Rechazar
+            button1.Enabled = false; // 
             button2.Enabled = false; // Confirmar
             btnDerivarAExperto.Enabled = false; // Derivar
         }

@@ -37,9 +37,9 @@ namespace ProyectoPPAI.Clases
         #region Getters y Setters
 
         // Métodos Get
-        public string GetUsuario()
+        public Usuario GetUsuario()
         {
-            return usuario.GetNombre();
+            return usuario;
         }
 
         public DateTime GetFechaHoraInicio()

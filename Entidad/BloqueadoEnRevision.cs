@@ -56,7 +56,7 @@ namespace ProyectoPPAI
         }
 
 
-        public void Rechazar(CambioEstado[] cambios, EventoSismico eventoSismico, DateTime fechaHora, String analista)
+        public void Rechazar(CambioEstado[] cambios, EventoSismico eventoSismico, DateTime fechaHora, Usuario analista)
         {
             CambioEstado cambioActual = buscarCambioEstadoActual(cambios);
             cambioActual.SetFechaHoraFin(fechaHora);
@@ -79,7 +79,7 @@ namespace ProyectoPPAI
             return new Rechazado();
         }
 
-        public CambioEstado crearCambioEstado(DateTime fechaHora, IEstado estado, String analista)
+        public CambioEstado crearCambioEstado(DateTime fechaHora, IEstado estado, Usuario analista)
         {
             return new CambioEstado(fechaHora, estado, analista);
         }

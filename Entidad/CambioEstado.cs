@@ -12,7 +12,7 @@ namespace ProyectoPPAI.Clases
         // ========================            Atributos            ========================
         private DateTime fechaHoraDesde;
         private DateTime? fechaHoraFin;  // Null porque puede estar sin defeinir
-        private String responsable;
+        private Usuario responsable;
 
         // Relaciones 1 a 1
         private IEstado estado;  
@@ -20,7 +20,7 @@ namespace ProyectoPPAI.Clases
         // ========================           Constructores              ========================
         public CambioEstado() { }
 
-        public CambioEstado(DateTime fechaHoraDesde, IEstado estado, String responsable)
+        public CambioEstado(DateTime fechaHoraDesde, IEstado estado, Usuario responsable)
         {
             this.fechaHoraDesde = fechaHoraDesde;
             this.estado = estado;

@@ -18,9 +18,9 @@ namespace ProyectoPPAI
         bool sosDerivado();
         bool sosPendienteRevision();
         void Revisar(CambioEstado[] es, EventoSismico eventoSismico, DateTime fechaHora);
-        void Rechazar(CambioEstado[] es, EventoSismico eventoSismico, DateTime fechaHora, String responsable);
+        void Rechazar(CambioEstado[] es, EventoSismico eventoSismico, DateTime fechaHora, Usuario responsable);
         CambioEstado buscarCambioEstadoActual(CambioEstado[] cambios);
         IEstado crearEstado();
-        CambioEstado crearCambioEstado(DateTime fechaHora, IEstado estado, String responsable);
+        CambioEstado crearCambioEstado(DateTime fechaHora, IEstado estado, Usuario responsable);
     }
 }

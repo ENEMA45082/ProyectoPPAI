@@ -69,7 +69,7 @@ namespace ProyectoPPAI
             eventoSismico.AgregarCambioEstado(nuevoCambio);
         }
 
-        public void Rechazar(CambioEstado[] es, EventoSismico eventoSismico, DateTime fechaHora, String responsable)
+        public void Rechazar(CambioEstado[] es, EventoSismico eventoSismico, DateTime fechaHora, Usuario responsable)
         {
             // El estado PendienteRevision no puede ser rechazado directamente
             throw new InvalidOperationException("Un evento en estado PendienteRevision debe ser revisado antes de ser rechazado.");
@@ -85,7 +85,7 @@ namespace ProyectoPPAI
             return new BloqueadoEnRevision();
         }
 
-        public CambioEstado crearCambioEstado(DateTime fechaHora, IEstado estado, String responsable)
+        public CambioEstado crearCambioEstado(DateTime fechaHora, IEstado estado, Usuario responsable)
         {
             return new CambioEstado(fechaHora, estado, responsable);
         }
